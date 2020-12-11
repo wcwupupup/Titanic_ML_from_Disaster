@@ -130,4 +130,4 @@ combine = [train_df, test_df]
 print(train_df.columns.values)
 ```
 
-![image-20201211200352154](../image/image-20201211200352154.png)
+![image-20201211200352154](../image/image_1.png)
