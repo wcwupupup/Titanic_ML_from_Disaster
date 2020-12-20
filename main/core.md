@@ -1,4 +1,4 @@
-# 泰坦尼克号幸存者预测
+#  泰坦尼克号幸存者预测
 
 ## 概述—问题处理的流程
 
@@ -65,6 +65,8 @@ In this challenge, we ask you to build a predictive model that answers the quest
 ```
 
 ## 2.处理数据—数据分析
+
+### 2.1.通过数据比例分析数据
 
 我们在数据分析阶段主要解决7个主要问题：
 
@@ -214,6 +216,10 @@ datetime_is_numeric：
 
 """
 train_df.describe()
+# Review survived rate using `percentiles=[.61, .62]` knowing our problem description mentions 38% survival rate.
+# Review Parch distribution using `percentiles=[.75, .8]`
+# SibSp distribution `[.68, .69]`
+# Age and Fare `[.1, .2, .3, .4, .5, .6, .7, .8, .9, .99]`
 ```
 
 ![image-20201213192711009](../image/image_5.png)
@@ -226,7 +232,7 @@ train_df.describe()
 2.Survived是否幸存是用0或1表示的分类特征。
 3.训练数据中约有38％的样本存活下来，代表了实际存活率的32％。
 4.大多数乘客（> 75％）没有和父母或孩子一起旅行。
-5.将近30％的乘客有兄弟姐妹和/或配偶。
+5.将近30％的乘客有兄弟姐妹或配偶。
 6.票价差异很大，只有极少的乘客（<1％）支付的费用高达512美元。
 7.65-80岁年龄段的老年乘客很少（<1％）。
 ```
@@ -243,9 +249,198 @@ train_df.describe(include=['O'])
 
 ```
 1.Name在数据集中是唯一的（count = unique = 891）
-2.Sex变量有两个可能的值，其中男性占65％（顶部=男性，freq = 577 / count = 891）。
+2.Sex变量有两个可能的值，其中男性占65％（top=男性，freq = 577 / count = 891）。
 3.Cabin在样本中具有多个重复项，可能几个乘客共用一个客舱。
 4.Embarked拥有三个可能的值，大多数乘客使用的S港口（top= S）。
-5.Ticket具有很高的重复值比率约22％，（唯一值= 681）。
+5.Ticket具有很高的重复值比率约22％，（unique= 681）。
 ```
 
+基于到目前为止完成的数据分析，我们可以得出以下假设，在采取适当措施之前，我们可能会进一步验证这些假设：
+
+```
+1.相关性。
+	我们想知道每个特征与生存率的关联程度，我们希望在项目的早期进行此操作，并将这些相关性与项目后期的建模相关性进行匹配。
+2.完整性。
+	1)我们可能想使得Age特征的数据完整，因为这个特征一定与生存率相关。
+	2)我们可能想使得Embarked特征的数据完整，因为它也可能与生存或其他重要特征相关。
+3.可能修正的数据。
+	1）Ticket特征可能会从我们的分析中删除，因为它包含很高的重复率（22%），而且票号和存活率之间可能没有相关性。
+	2）Cabin特征可能由于其数据高度不完整而被删除，在训练和测试数据集中此特征数据包含许多空值。
+	3）PassengerId可能会从训练数据集中删除，因为它看起来和生存率毫无关系。
+	4）Name特征数据不是很规范，可能不会直接有助于生存率，因此可能会被放弃。
+4.创建新的特征。
+	1）我们可能想基于Parch和SibSp这两个特征创建一个称为“Family”的新特征，以获取船上家庭成员的总数。
+	2）我们可能要重新设计Name特征，将Title提取为新功能。
+	3）我们可能要以年龄段Age bands创建新特征，这会将连续的年龄数字特征转换为序数形式的分类特征。
+	4）我们可能还想创建一个票价范围Fare range特性，如果这助于我们的分析。
+5.分类地考虑。
+	我们也可以根据前面提到的问题描述增加假设。
+	1）女性(Sex=female) 将更可能幸存。
+	2）儿童(Age<?) 将更可能幸存。
+	3）上层阶级乘客(Pclass=1) 将更可能幸存。
+```
+
+为了证实我们的一些观察和假设，下面通过关联特征来快速分析我们的特征相关性。我们只能在这个阶段对没有任何空值的特征这样做，对于分类（Sex）、序数（Pclass）或离散（SibSp，Parch）类型的特征，这样做也是有意义的。
+
+```
+"""
+DataFrame.groupby(参数有很多,详细见官方文档),
+使用映射器或按列对DataFrame进行分组。
+['Pclass']:
+    按照Pclass列分组
+as_index=False:
+    对于聚合输出，返回带有组标签的对象作为索引,也就是返回的数据带标签
+mean():
+    返回所请求轴的值的平均值
+sort_values:
+    按给定映射器或列排序
+"""
+train_df[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False)
+```
+
+![image-20201214111754633](../image/image_7.png)
+
+```
+train_df[['Sex', 'Survived']].groupby(['Sex'], as_index=False).mean().sort_values(by='Survived', ascending=False)
+```
+
+![image-20201214111907526](../image/image_8.png)
+
+```
+train_df[["SibSp", "Survived"]].groupby(['SibSp'], as_index=False).mean().sort_values(by='Survived', ascending=False)
+```
+
+![image-20201214111948089](../image/image_9.png)
+
+```
+train_df[["Parch", "Survived"]].groupby(['Parch'], as_index=False).mean().sort_values(by='Survived', ascending=False)
+```
+
+![image-20201214112022035](../image/image_10.png)
+
+ 由上面的分析，我们可知：
+
+```
+1.Pclass阶级特征：可以观察到Pclass=1与幸存极具相关性（其中有6成的人幸存）。
+2.Sex性别特征：可以观察得Sex=female，即性别为女性的存活率非常高（>74%）
+3.SibSp and Parch亲人特征：这些特征貌似与是否幸存没有多大关系。 可能需要从这些独立的特征中派生一个特征或一组特征。
+```
+
+### 2.2.通过可视化分析数据
+
+接下来，我们会通过可视化分析数据来继续证实之前的假设。
+
+我们首先从理解数字型特征和目标特征间的关系开始。**直方图可用于分析连续的数字变量**，例如"Age"，其中带状或范围将有助于识别有用的模式，直方图可以自定义等距范围来指示样本的分布，这有助于我们回答与特定范围有关的问题（例如婴儿的存活率更高吗？）
+
+```
+"""
+Seaborn是基于matplotlib的Python可视化库，比matplotlib更加容易使用，而且图例的风格更加现代化
+"""
+g = sns.FacetGrid(train_df, col='Survived') # 创建网格并将训练数据的'Survived'特征作为高度
+g.map(plt.hist, 'Age', bins=20) # 绘制图像,hist为直方图,横坐标为'Age',分布间隔为20
+```
+
+![image-20201220153111039](../image/image_11.png)
+
+通过以上图像，我们可以得到如下结论：
+
+```
+1.初生婴儿（Age<=4）有较高的生存率。
+2.老人（Age>=80）全部存活。
+3.大部分15~25岁的年轻人没有存活。
+4.绝大数乘客的年龄在15~35岁之间。
+```
+
+这种简单的分析证实了我们的假设，可为后续工作流程提供决策：
+
+```
+1.我们应该将Age特征考虑进我们的模型训练之中（分类假设2）。
+2.我们应该使得Age特征值完整，没有空值（完整性假设1）。
+3.我们应该以年龄段为基础将样本划分（创建新的假设3）。
+```
+
+我们可以组合多个特征在单个图中显示，以此来观察相关性，这可以通过具有数字值的数字和分类特征来完成。
+
+```
+grid = sns.FacetGrid(train_df, col='Pclass', hue='Survived') # 将这两个特征关联起来显示在图中
+grid.map(plt.hist, 'Age', alpha=.5, bins=20) # alpha表示透明度，越小越透明
+grid.add_legend()
+```
+
+![image-20201220160033365](../image/image_12.png)
+
+```
+grid = sns.FacetGrid(train_df, col='Survived', row='Pclass', size=2.2, aspect=1.6) # size大小和aspect长宽比
+grid.map(plt.hist, 'Age', alpha=.5, bins=20) # alpha表示透明度，越小越透明
+grid.add_legend()
+```
+
+![image-20201220160248775](../image/image_13.png)
+
+```
+通过观察，我们可知：
+1.大多数乘客的Pclass=3，然而他们的幸存率很低（这证实了我们的分类假设3）。
+2.Pclass=2和Pclass=3的婴儿乘客大部分幸存下来（进一步证明我们的分类假设2）。
+3.Pclass=1的大多数乘客幸存了下来（这进一步证实了我们的分类假设3）
+4.Pclass在乘客的年龄分布方面有所不同。
+由此，应该考虑将Pclass特征添加到模型训练中。 
+```
+
+现在，我们可以将分类特征与我们的解决目标Survived特征相关联。
+
+```
+grid = sns.FacetGrid(train_df, row='Embarked', size=2.2, aspect=1.6)
+# palette参数，一般在使用hue时来改变线的颜色，有这几种系统给的可选deep, muted, bright, pastel, dark, colorb
+grid.map(sns.pointplot, 'Pclass', 'Survived', 'Sex', palette='deep') # pointplot 点图
+grid.add_legend()
+```
+
+![image-20201220162602258](../image/image_14.png)
+
+```
+grid = sns.FacetGrid(train_df, col='Embarked')
+# palette参数，一般在使用hue时来改变线的颜色，有这几种系统给的可选deep, muted, bright, pastel, dark, colorb
+grid.map(sns.pointplot, 'Pclass', 'Survived', 'Sex', palette='deep') # pointplot 点图
+grid.add_legend()
+```
+
+![image-20201220162725397](../image/image_15.png)
+
+```
+通过观察，我们可知：
+1.女性的生存率比男性的生存率高（证实了分类假设1）。
+2.在港口C是例外，那里男性的生存率比女性的高。这可能是Pclass与Embarked之间的存在关联，而Pclass与Survived关联从而影响了结果，不一定是Embarked与Survived之间直接关联。
+3.在Q港口中，Pclass = 3的雄性成活率比Pclass = 2更高（完成假设2）。
+4.各港口在Pclass = 3处男性乘客的生存率各不相同（相关性假设1）。
+由此可见Sex与Embarked特征会影响目标值，我们决定:
+1.将性别特征Sex添加到训练模型中。
+2.将Embarked补全，并将Embarked特征添加到训练模型中。
+```
+
+我们可能还想将分类特征（具有非数字值）和数字特征联系起来分析，我们可以考虑将Embarked （类别为非数字），Sex （类别为非数字），Fare （类别为连续的数字）与Survived （类别数字）关联起来分析：
+
+```
+grid = sns.FacetGrid(train_df, row='Embarked', col='Survived', size=2.2, aspect=1.6)
+# ci:回归估计的置信区间的大小。这将使用回归线周围的半透明带绘制。置信区间是使用bootstrap估计的；对于大型数据集，建议通过将此参数设置为None来避免这种计算。
+grid.map(sns.barplot, 'Sex', 'Fare', alpha=.5, ci=None) # barplot 绘制条形图
+grid.add_legend()
+```
+
+![image-20201220202308377](../image/image_16.png)
+
+```
+grid = sns.FacetGrid(train_df, col='Embarked', hue='Survived', palette='deep')
+grid.map(sns.barplot, 'Sex', 'Fare', alpha=.5, ci=None) # barplot 绘制条形图
+grid.add_legend()
+```
+
+![image-20201220214814446](../image/image_17.png)
+
+```
+通过观察可知：
+1.较高票价的乘客有更好的生存，确认我们关于创建票价范围的假设。
+2.登船口与存活率相关。
+由此，将Fare票价考虑进训练模型。
+```
+
+### 2.3.整理数据
